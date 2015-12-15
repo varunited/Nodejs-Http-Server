@@ -1,0 +1,7 @@
+{
+    "name": "node web server",
+    "version": "0.0.1",
+    "description": "A simple http server in nodejs",
+    "private": "true",
+    "dependencies": {}
+}
