@@ -33,9 +33,11 @@ function parseHeader(request, arr) {
     });
 }
 
-function parseBody(request, queryString) {
+function parseBody(request, queryString) { //FOR POST REQUEST
         request['body'] = queryString;
-} //FOR POST REQUEST
+        //console.log(request['body']);
+        //console.log('Getting here');
+}
 
 function responseStringify(response) {
     var responseString = response['status'] + '\r\n';
@@ -68,8 +70,11 @@ function post_handler(request, response) {
 function staticFileHandler(request, response) {
     var filePath = false;
     if (request['header']['path'] == '/') filePath = './public/index.html';
+    if (request['header']['path'] == '/favicon.ico') filePath = './public/index.html';
     if (request['header']['path'] == '/form.html') filePath = './public/form.html';
+    if (request['header']['path'] == '/altform.html') filePath = './public/altform.html';
     if (request['header']['method'] == 'POST') filePath = './temp/test.html';
+
 
     fs.readFile(filePath, function(err, data) {
         if (!err) {
@@ -100,14 +105,17 @@ function responseHandler(request, response) {
 function requestHandler(request, requestString) {
     var response = {};
     var requestParts = requestString.split('\r\n\r\n');
-    //var requestHeader = {};
-    //var requestBody = {}; //FOR POST REQUEST
-    console.log("HEAD: " + requestParts[0]);
+
+    requestParts.forEach(function(data) {
+        console.log('Parts-> '+data+'\n');
+    });
+
     parseHeader(request, requestParts[0].split('\r\n'));
-    console.log("BODY: " + requestParts[1]);
+    //console.log("BODY: " + requestParts[1]);
+    console.log(requestParts[1].length);
     if (requestParts[1].length) {
         parseBody(request, requestParts[1]);
-        if (!request['header']['Content-Length']) request['header']['Content-Length'] = request['body'].length;
+        //if (!request['header']['Content-Length']) request['header']['Content-Length'] = request['body'].length;
     }
     methodHandler(request,response);
 }
@@ -118,6 +126,7 @@ net.createServer(function(socket) {
     request['header'] = {};
     request['body'] = {};
     socket.on('data', function(data) {
+        console.log('---------------RAW---------------\n ' +  data.toString() + '\n---------------Raw Ends---------------');
         requestHandler(request, data.toString());
     });
-}).listen(8080);
+}).listen(8080, '0.0.0.0');
