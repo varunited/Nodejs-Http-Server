@@ -26,6 +26,7 @@ function parseProtocol(request, prot) {
 
 function parseHeader(request, arr) {
     parseProtocol(request, arr[0].split(' '));
+    //Mutability Check!!!
     arr.shift();
     arr.forEach(function(data) {
         var elem = data.split(': ');
@@ -105,17 +106,19 @@ function responseHandler(request, response) {
 function requestHandler(request, requestString) {
     var response = {};
     var requestParts = requestString.split('\r\n\r\n');
-
-    requestParts.forEach(function(data) {
-        console.log('Parts-> '+data+'\n');
-    });
-
     parseHeader(request, requestParts[0].split('\r\n'));
-    //console.log("BODY: " + requestParts[1]);
-    console.log(requestParts[1].length);
-    if (requestParts[1].length) {
-        parseBody(request, requestParts[1]);
-        //if (!request['header']['Content-Length']) request['header']['Content-Length'] = request['body'].length;
+    //Matability Check!!!
+    requestParts.shift();
+
+    var bodyString = '';
+    requestParts.forEach(function(bodyParts) {
+        console.log("******"+bodyParts);
+        bodyString += bodyParts;
+        //bodyString += '\r\n';
+    });
+    console.log('Parts: ' + bodyString);
+    if (bodyString) {
+        parseBody(request, bodyString);
     }
     methodHandler(request,response);
 }
