@@ -34,10 +34,16 @@ function parseHeader(request, arr) {
     });
 }
 
-function parseBody(request, queryString) { //FOR POST REQUEST
-        request['body'] = queryString;
-        //console.log(request['body']);
-        //console.log('Getting here');
+function parseBody(request, requestParts) { //FOR POST REQUEST
+    var bodyString = '';
+    requestParts.forEach(function(bodyParts) {
+        console.log("******"+bodyParts);
+        bodyString += bodyParts + '\r\n';
+        //bodyString += '\r\n';
+    });
+    request['body'] = bodyString;
+    var str = request['body'];
+    console.log("WholeBody :" + str);
 }
 
 function responseStringify(response) {
@@ -110,16 +116,10 @@ function requestHandler(request, requestString) {
     //Matability Check!!!
     requestParts.shift();
 
-    var bodyString = '';
-    requestParts.forEach(function(bodyParts) {
-        console.log("******"+bodyParts);
-        bodyString += bodyParts;
-        //bodyString += '\r\n';
-    });
-    console.log('Parts: ' + bodyString);
-    if (bodyString) {
-        parseBody(request, bodyString);
+    if (request['header']['method'] !== 'GET') {
+        parseBody(request, requestParts);
     }
+
     methodHandler(request,response);
 }
 //------------------------------------------------------------------------------
