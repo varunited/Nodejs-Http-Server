@@ -39,26 +39,41 @@ function parseBody(request, bodyParts) { //FOR POST REQUEST
     bodyParts.forEach(function(bodyPart, index) {
         if (index > 0) {
             //console.log(index  +  bodyPart);
-            bodyString += bodyPart + '\r\n\r\n';// Double for
+            bodyString += bodyPart + '\r\n\r\n';// FIX THIS FOR Contnt-type = x-www-form-urlencoded
         }
     });
     //console.log(bodyString);
     request['body'] = bodyString;
 }
 
+function formBuilder(request, formParts) {
+    if (formParts['header'] && formParts['body']) {
+        var key = formParts['header'].match(/\bname=\"(.*?)\"/)[1];
+        request['form'][key] = {};
+        request['form'][key]['header'] = formParts['header'];
+        request['form'][key]['body'] = formParts['body'];
+        //console.log();
+        //console.log(formParts);
+    }
+}
+
 function formParser(request) {
-    request['boundary'] = '--' + request['header']['Content-Type'].split('=')[1]; //Carriage-Endline
+    request['form'] = {};
+    request['boundary'] = '--' + request['header']['Content-Type'].split('=')[1];
+    var formParts = {};
     var formArray = [];
     request['body'].split(request['boundary']).forEach(function(data, index) {
-        if (data.length > 1) {
+        if (data) {
+            //form[index+1] = {};
             formArray = data.split('\r\n\r\n');
-            formArray[0] = formArray[0].substring(2); //Removes '\r\n' from begining of the element
-            formArray.forEach(function(data, index){
-                console.log(index + '->' + data);
-            });
-        }
+            formParts['header'] = formArray[0].substring(2).replace(/\r\n/g, '; ');
+            formParts['body'] = formArray[1].slice(0, -2);
+            formBuilder(request, formParts);
 
+        }
     });
+    //console.log(form);
+
 }
 
 function responseStringify(response) {
