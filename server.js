@@ -24,26 +24,41 @@ function parseProtocol(request, prot) {
     request['header']['version'] = prot[2];
 }
 
-function parseHeader(request, arr) {
-    parseProtocol(request, arr[0].split(' '));
-    //Mutability Check!!!
-    arr.shift();
-    arr.forEach(function(data) {
-        var elem = data.split(': ');
-        request['header'][elem[0]] = elem[1];
+function parseHeader(request, headerParts) {
+    parseProtocol(request, headerParts[0].split(' '));
+    headerParts.forEach(function(data, index) {
+        if (index > 0) {
+            var elem = data.split(': ');
+            request['header'][elem[0]] = elem[1];
+        }
     });
 }
 
-function parseBody(request, requestParts) { //FOR POST REQUEST
+function parseBody(request, bodyParts) { //FOR POST REQUEST
     var bodyString = '';
-    requestParts.forEach(function(bodyParts) {
-        console.log("******"+bodyParts);
-        bodyString += bodyParts + '\r\n';
-        //bodyString += '\r\n';
+    bodyParts.forEach(function(bodyPart, index) {
+        if (index > 0) {
+            //console.log(index  +  bodyPart);
+            bodyString += bodyPart + '\r\n\r\n';// Double for
+        }
     });
+    //console.log(bodyString);
     request['body'] = bodyString;
-    var str = request['body'];
-    console.log("WholeBody :" + str);
+}
+
+function formParser(request) {
+    request['boundary'] = '--' + request['header']['Content-Type'].split('=')[1]; //Carriage-Endline
+    var formArray = [];
+    request['body'].split(request['boundary']).forEach(function(data, index) {
+        if (data.length > 1) {
+            formArray = data.split('\r\n\r\n');
+            formArray[0] = formArray[0].substring(2); //Removes '\r\n' from begining of the element
+            formArray.forEach(function(data, index){
+                console.log(index + '->' + data);
+            });
+        }
+
+    });
 }
 
 function responseStringify(response) {
@@ -59,6 +74,8 @@ function responseStringify(response) {
     return responseString;
 }
 
+//Handlers----------------------------------------------------------------------
+
 function methodHandler(request,response) {
     METHOD[request['header']['method']](request,response);
 }
@@ -69,6 +86,10 @@ function get_handler(request, response) {
 }
 
 function post_handler(request, response) {
+    if (request['header']['Content-Type'].includes('multipart/form-data')) {
+        //console.log("THEREEEEEEEEEEEEEEEEEEEEEEEE");
+        formParser(request);
+    }
     request['content'] = qs.parse(request['body']);
     console.log(request);
     staticFileHandler(request, response);
@@ -113,13 +134,10 @@ function requestHandler(request, requestString) {
     var response = {};
     var requestParts = requestString.split('\r\n\r\n');
     parseHeader(request, requestParts[0].split('\r\n'));
-    //Matability Check!!!
-    requestParts.shift();
 
     if (request['header']['method'] !== 'GET') {
         parseBody(request, requestParts);
     }
-
     methodHandler(request,response);
 }
 //------------------------------------------------------------------------------
@@ -131,5 +149,7 @@ net.createServer(function(socket) {
     socket.on('data', function(data) {
         console.log('---------------RAW---------------\n ' +  data.toString() + '\n---------------Raw Ends---------------');
         requestHandler(request, data.toString());
+        //console.log(request['body']);
     });
-}).listen(8080, '0.0.0.0');
+
+}).listen(8000, '0.0.0.0');
