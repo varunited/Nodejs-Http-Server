@@ -18,40 +18,31 @@ var staticFileSystem = {
     '/': '/public/index.html'
 }
 //-------------PARSING----------------------------------------------------------
-function parseProtocol(request, prot) {
-    request['header']['method'] = prot[0];
-    request['header']['path'] = prot[1];
-    request['header']['version'] = prot[2];
-}
 
-function parseHeader(request, headerParts) {
-    parseProtocol(request, headerParts[0].split(' '));
-    headerParts.forEach(function(data, index) {
-        if (index > 0) {
-            var elem = data.split(': ');
-            request['header'][elem[0]] = elem[1];
+function responseStringify(response) {
+    var responseString = response['status'] + '\r\n';
+    for (key in response) {
+        if (response.hasOwnProperty(key) && key != 'content' && key != 'status') {
+            responseString += key + ': ' + response[key] + '\r\n';
         }
-    });
-}
 
-function parseBody(request, bodyParts) { //FOR POST REQUEST
-    var bodyString = '';
-    bodyParts.forEach(function(bodyPart, index) {
-        if (index > 0) {
-            //console.log(index  +  bodyPart);
-            bodyString += bodyPart + '\r\n\r\n';// FIX THIS FOR Contnt-type = x-www-form-urlencoded
-        }
-    });
-    //console.log(bodyString);
-    request['body'] = bodyString;
+    }
+    responseString += '\r\n';
+    if ('content' in response) responseString += response['content'];
+    return responseString;
 }
 
 function formBuilder(request, formParts) {
-    if (formParts['header'] && formParts['body']) {
+    if (formParts['header']) {
         var key = formParts['header'].match(/\bname=\"(.*?)\"/)[1];
         request['form'][key] = {};
         request['form'][key]['header'] = formParts['header'];
-        request['form'][key]['body'] = formParts['body'];
+        if (isFinite(formParts['body'])) {
+            request['form'][key]['body'] = parseFloat(formParts['body']);
+            console.log(request['form'][key]['body']);
+        } else {
+          request['form'][key]['body'] = formParts['body'];
+        }
         //console.log();
         //console.log(formParts);
     }
@@ -76,38 +67,50 @@ function formParser(request) {
 
 }
 
-function responseStringify(response) {
-    var responseString = response['status'] + '\r\n';
-    for (key in response) {
-        if (response.hasOwnProperty(key) && key != 'content' && key != 'status') {
-            responseString += key + ': ' + response[key] + '\r\n';
+function parseBody(request, bodyParts) { //FOR POST REQUEST
+    var bodyString = '';
+    bodyParts.forEach(function(bodyPart, index) {
+        if (index > 0) {
+            //console.log(index  +  bodyPart);
+            bodyString += bodyPart + '\r\n\r\n';// FIX THIS FOR Contnt-type = x-www-form-urlencoded
         }
+    });
+    //console.log(bodyString);
+    request['body'] = bodyString;
+}
 
-    }
-    responseString += '\r\n';
-    if ('content' in response) responseString += response['content'];
-    return responseString;
+function parseProtocol(request, prot) {
+    request['header']['method'] = prot[0];
+    request['header']['path'] = prot[1];
+    request['header']['version'] = prot[2];
+}
+
+function parseHeader(request, headerParts) {
+    parseProtocol(request, headerParts[0].split(' '));
+    headerParts.forEach(function(data, index) {
+        if (index > 0) {
+            var elem = data.split(': ');
+            request['header'][elem[0]] = elem[1];
+        }
+    });
 }
 
 //Handlers----------------------------------------------------------------------
 
-function methodHandler(request,response) {
-    METHOD[request['header']['method']](request,response);
+function responseHandler(request, response) {
+    response['Date'] = new Date().toUTCString();
+    response['Connection'] = 'close';
+    response['Server'] = 'NodeServer';
+    var responseString = responseStringify(response);
+    request["socket"].write(responseString, function(err) {
+            request["socket"].end();
+    });
 }
 
-function get_handler(request, response) {
-    console.log(request);
-    staticFileHandler(request,response);
-}
-
-function post_handler(request, response) {
-    if (request['header']['Content-Type'].includes('multipart/form-data')) {
-        //console.log("THEREEEEEEEEEEEEEEEEEEEEEEEE");
-        formParser(request);
-    }
-    request['content'] = qs.parse(request['body']);
-    console.log(request);
-    staticFileHandler(request, response);
+function ok200Handler(request, response) {
+    response['status'] = 'HTTP/1.1 200 OK';
+    if (response['content'])  response['Content-Length'] = (response['content'].length).toString();
+    responseHandler(request, response);
 }
 
 function staticFileHandler(request, response) {
@@ -129,20 +132,31 @@ function staticFileHandler(request, response) {
     });
 }
 
-function ok200Handler(request, response) {
-    response['status'] = 'HTTP/1.1 200 OK';
-    if (response['content'])  response['Content-Length'] = (response['content'].length).toString();
-    responseHandler(request, response);
+function get_handler(request, response) {
+    console.log(request);
+    staticFileHandler(request,response);
 }
 
-function responseHandler(request, response) {
-    response['Date'] = new Date().toUTCString();
-    response['Connection'] = 'close';
-    response['Server'] = 'NodeServer';
-    var responseString = responseStringify(response);
-    request["socket"].write(responseString, function(err) {
-            request["socket"].end();
-    });
+function post_handler(request, response) {
+    if (request['header']['Content-Type'].includes('multipart/form-data')) {
+        //console.log("THEREEEEEEEEEEEEEEEEEEEEEEEE");
+        formParser(request);
+    } else {
+        request['content'] = qs.parse(request['body']);
+    }
+    console.log(request);
+    console.log(request['form']['username1']['header'].split('; '));
+    console.log(request['form']['username1']['body'] + 2);
+    console.log(request['form']['username2']['header'].split('; '));
+    console.log(request['form']['username2']['body'] + 2);
+    console.log(request['form']['username3']['header'].split('; '));
+    console.log(request['form']['username3']['body'] + 2);
+
+    staticFileHandler(request, response);
+}
+
+function methodHandler(request,response) {
+    METHOD[request['header']['method']](request,response);
 }
 
 function requestHandler(request, requestString) {
@@ -150,7 +164,7 @@ function requestHandler(request, requestString) {
     var requestParts = requestString.split('\r\n\r\n');
     parseHeader(request, requestParts[0].split('\r\n'));
 
-    if (request['header']['method'] !== 'GET') {
+    if (request['header']['method'] === 'POST') {
         parseBody(request, requestParts);
     }
     methodHandler(request,response);
