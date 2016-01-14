@@ -2,7 +2,7 @@ var net = require('net');
 var fs = require('fs');
 var url = require('url');
 var qs = require('querystring');
-
+var uuid = require('node-uuid');
 
 var postDump = {};
 var METHOD = {
@@ -14,9 +14,6 @@ var CONTENT_TYPE = {
     html: 'text/html'
 }
 
-var staticFileSystem = {
-    '/': '/public/index.html'
-}
 //-------------PARSING----------------------------------------------------------
 
 function responseStringify(response) {
@@ -33,18 +30,18 @@ function responseStringify(response) {
 }
 
 function formBuilder(request, formParts) {
-    if (formParts['header']) {
-        var key = formParts['header'].match(/\bname=\"(.*?)\"/)[1];
-        request['form'][key] = {};
-        request['form'][key]['header'] = formParts['header'];
+    var key = formParts['header'].match(/\bname=\"(.*?)\"/)[1];
+    request['form'][key] = {};
+    request['form'][key]['header'] = formParts['header'];
+    if (formParts['body']) {
         if (isFinite(formParts['body'])) {
             request['form'][key]['body'] = parseFloat(formParts['body']);
-            console.log(request['form'][key]['body']);
+            console.log("Bodies"+request['form'][key]['body']);
         } else {
           request['form'][key]['body'] = formParts['body'];
         }
-        //console.log();
-        //console.log(formParts);
+    } else {
+        request['form'][key]['body'] = undefined;
     }
 }
 
@@ -57,14 +54,13 @@ function formParser(request) {
         if (data) {
             //form[index+1] = {};
             formArray = data.split('\r\n\r\n');
-            formParts['header'] = formArray[0].substring(2).replace(/\r\n/g, '; ');
-            formParts['body'] = formArray[1].slice(0, -2);
-            formBuilder(request, formParts);
-
+            formParts['header'] = formArray[0].substring(2).replace(/\r\n/g, '; '); // Substring for ommiting \r\n from header and regex for fusing headers.
+            formParts['body'] = formArray[1].slice(0, -2); //Removes \r\n from end of the body.
+            if (formParts['header']) {
+                formBuilder(request, formParts);
+            }
         }
     });
-    //console.log(form);
-
 }
 
 function parseBody(request, bodyParts) { //FOR POST REQUEST
@@ -93,6 +89,12 @@ function parseHeader(request, headerParts) {
             request['header'][elem[0]] = elem[1];
         }
     });
+
+    if ('cookie' in request['header']) {
+
+    } else {
+        request['header']['cookie'] = '';
+    }
 }
 
 //Handlers----------------------------------------------------------------------
@@ -101,6 +103,12 @@ function responseHandler(request, response) {
     response['Date'] = new Date().toUTCString();
     response['Connection'] = 'close';
     response['Server'] = 'NodeServer';
+
+    if (request['header']['cookie'] = '') {
+        response['Set-Cookie'] = 'sid' + uuid.v4().toString();
+    }
+    console.log(response);
+
     var responseString = responseStringify(response);
     request["socket"].write(responseString, function(err) {
             request["socket"].end();
@@ -120,7 +128,6 @@ function staticFileHandler(request, response) {
     if (request['header']['path'] == '/form.html') filePath = './public/form.html';
     if (request['header']['path'] == '/altform.html') filePath = './public/altform.html';
     if (request['header']['method'] == 'POST') filePath = './temp/test.html';
-
 
     fs.readFile(filePath, function(err, data) {
         if (!err) {
@@ -145,13 +152,6 @@ function post_handler(request, response) {
         request['content'] = qs.parse(request['body']);
     }
     console.log(request);
-    console.log(request['form']['username1']['header'].split('; '));
-    console.log(request['form']['username1']['body'] + 2);
-    console.log(request['form']['username2']['header'].split('; '));
-    console.log(request['form']['username2']['body'] + 2);
-    console.log(request['form']['username3']['header'].split('; '));
-    console.log(request['form']['username3']['body'] + 2);
-
     staticFileHandler(request, response);
 }
 

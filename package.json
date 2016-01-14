@@ -1,7 +1,9 @@
 {
-    "name": "node web server",
+    "name": "Node-Web-Server",
     "version": "0.0.1",
     "description": "A simple http server in nodejs",
     "private": "true",
-    "dependencies": {}
+    "dependencies": {
+        "node-uuid": "^1.4.6"
+    }
 }
