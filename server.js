@@ -16,7 +16,7 @@ var CONTENT_TYPE = {
 
 //-------------PARSING----------------------------------------------------------
 
-function responseStringify(response) {
+function stringifyResponse(response) {
     var responseString = response['status'] + '\r\n';
     for (key in response) {
         if (response.hasOwnProperty(key) && key != 'content' && key != 'status') {
@@ -29,41 +29,41 @@ function responseStringify(response) {
     return responseString;
 }
 
-function formBuilder(request, formParts) {
-    var key = formParts['header'].match(/\bname=\"(.*?)\"/)[1];
+function formPartsParser(request, formPart) {
+    var key = formPart['header'].match(/\bname=\"(.*?)\"/)[1];
     request['form'][key] = {};
-    request['form'][key]['header'] = formParts['header'];
-    if (formParts['body']) {
-        if (isFinite(formParts['body'])) {
-            request['form'][key]['body'] = parseFloat(formParts['body']);
+    request['form'][key]['header'] = formPart['header'];
+    if (formPart['body']) {
+        if (isFinite(formPart['body'])) {
+            request['form'][key]['body'] = parseFloat(formPart['body']);
             console.log("Bodies"+request['form'][key]['body']);
         } else {
-          request['form'][key]['body'] = formParts['body'];
+          request['form'][key]['body'] = formPart['body'];
         }
     } else {
         request['form'][key]['body'] = undefined;
     }
 }
 
-function formParser(request) {
+function multipartParser(request) {
     request['form'] = {};
     request['boundary'] = '--' + request['header']['Content-Type'].split('=')[1];
-    var formParts = {};
+    var formPart = {};
     var formArray = [];
     request['body'].split(request['boundary']).forEach(function(data, index) {
         if (data) {
             //form[index+1] = {};
             formArray = data.split('\r\n\r\n');
-            formParts['header'] = formArray[0].substring(2).replace(/\r\n/g, '; '); // Substring for ommiting \r\n from header and regex for fusing headers.
-            formParts['body'] = formArray[1].slice(0, -2); //Removes \r\n from end of the body.
-            if (formParts['header']) {
-                formBuilder(request, formParts);
+            formPart['header'] = formArray[0].substring(2).replace(/\r\n/g, '; '); // Substring for ommiting \r\n from header and regex for fusing headers.
+            formPart['body'] = formArray[1].slice(0, -2); //Removes \r\n from end of the body.
+            if (formPart['header']) {
+                formPartsParser(request, formPart);
             }
         }
     });
 }
 
-function parseBody(request, bodyParts) { //FOR POST REQUEST
+function bodyParser(request, bodyParts) { //FOR POST REQUEST
     var bodyString = '';
     bodyParts.forEach(function(bodyPart, index) {
         if (index > 0) {
@@ -75,14 +75,14 @@ function parseBody(request, bodyParts) { //FOR POST REQUEST
     request['body'] = bodyString;
 }
 
-function parseProtocol(request, prot) {
+function protocolParser(request, prot) {
     request['header']['method'] = prot[0];
     request['header']['path'] = prot[1];
     request['header']['version'] = prot[2];
 }
 
-function parseHeader(request, headerParts) {
-    parseProtocol(request, headerParts[0].split(' '));
+function headerParser(request, headerParts) {
+    protocolParser(request, headerParts[0].split(' '));
     headerParts.forEach(function(data, index) {
         if (index > 0) {
             var elem = data.split(': ');
@@ -90,10 +90,19 @@ function parseHeader(request, headerParts) {
         }
     });
 
-    if ('cookie' in request['header']) {
+    if (request['header'].hasOwnProperty('Cookie')) {
+        console.log("present");
+        var cookies = request['header']['Cookie'].split(';');
+        var client_cookies = {};
+        cookies.forEach(function(cook) {
+           var cookArr = cook.trim().split('=');
+           client_cookies[cookArr[0]] = cookArr[1];
+        });
+        request['header']['Cookie'] = client_cookies;
 
     } else {
-        request['header']['cookie'] = '';
+          console.log("Not Present");
+          request['header']['Cookie'] = '';
     }
 }
 
@@ -104,12 +113,12 @@ function responseHandler(request, response) {
     response['Connection'] = 'close';
     response['Server'] = 'NodeServer';
 
-    if (request['header']['cookie'] = '') {
-        response['Set-Cookie'] = 'sid' + uuid.v4().toString();
+    if (request['header']['Cookie'] == '') {
+        response['Set-Cookie'] = 'sid=' + uuid.v4().toString();
+        console.log("_________________"+response['Set-Cookie']+"____________________");
     }
-    console.log(response);
 
-    var responseString = responseStringify(response);
+    var responseString = stringifyResponse(response);
     request["socket"].write(responseString, function(err) {
             request["socket"].end();
     });
@@ -117,20 +126,32 @@ function responseHandler(request, response) {
 
 function ok200Handler(request, response) {
     response['status'] = 'HTTP/1.1 200 OK';
-    if (response['content'])  response['Content-Length'] = (response['content'].length).toString();
+    if (response['content']) {
+        response['Content-Length'] = (response['content'].length).toString();
+    }
+    responseHandler(request, response);
+}
+
+function err404Handler(request, response) {
+    response['status'] = "HTTP/1.1 404 Not Found";
+    response['content'] = "Content Not Found";
+    response['Content-type'] = "text/HTML";
     responseHandler(request, response);
 }
 
 function staticFileHandler(request, response) {
     var filePath = false;
-    if (request['header']['path'] == '/') filePath = './public/index.html';
-    if (request['header']['path'] == '/favicon.ico') filePath = './public/index.html';
-    if (request['header']['path'] == '/form.html') filePath = './public/form.html';
-    if (request['header']['path'] == '/altform.html') filePath = './public/altform.html';
-    if (request['header']['method'] == 'POST') filePath = './temp/test.html';
+    filePath = request['header']['path'];
+    if (filePath == '/' || filePath == '/favicon.ico') {
+        filePath = './public/index.html';
+    } else {
+        filePath = './public' + filePath;
+    }
 
     fs.readFile(filePath, function(err, data) {
-        if (!err) {
+        if (err) {
+            err404Handler(request, response);
+        } else {
             response['content'] = data.toString();
             var contentType = filePath.split('.').pop();
             response['Content-type'] = CONTENT_TYPE[contentType];
@@ -147,7 +168,7 @@ function get_handler(request, response) {
 function post_handler(request, response) {
     if (request['header']['Content-Type'].includes('multipart/form-data')) {
         //console.log("THEREEEEEEEEEEEEEEEEEEEEEEEE");
-        formParser(request);
+        multipartParser(request);
     } else {
         request['content'] = qs.parse(request['body']);
     }
@@ -162,10 +183,10 @@ function methodHandler(request,response) {
 function requestHandler(request, requestString) {
     var response = {};
     var requestParts = requestString.split('\r\n\r\n');
-    parseHeader(request, requestParts[0].split('\r\n'));
+    headerParser(request, requestParts[0].split('\r\n'));
 
     if (request['header']['method'] === 'POST') {
-        parseBody(request, requestParts);
+        bodyParser(request, requestParts);
     }
     methodHandler(request,response);
 }

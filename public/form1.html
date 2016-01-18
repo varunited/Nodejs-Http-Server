@@ -1,0 +1,23 @@
+<html>
+<head><title>JDON handler</title> <meta charset="utf-8"> </head>
+<body>
+  <h2>JSON Request</h2>
+
+    <form name="inputform" action="formHandled.html" method="post">
+      <input type="hidden" value="person" name="user" />
+      <input type="hidden" value="password" name="pwd" />
+      <input type="hidden" value="place" name="organization" />
+      <input type="hidden" value="key" name="requiredkey" />
+    </form>
+    <script>
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', 'formHandled.html', true);
+        xhr.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
+        xhr.onload = function () {
+            // do something to response
+            console.log(this.responseText);
+        };
+        xhr.send('user=person&pwd=password&organization=place&requiredkey=key');
+    </script>
+</body>
+</html>
