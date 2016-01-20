@@ -4,7 +4,8 @@ var url = require('url');
 var qs = require('querystring');
 var uuid = require('node-uuid');
 
-var postDump = {};
+var SESSIONS = {};
+
 var METHOD = {
     GET: get_handler,
     POST: post_handler
@@ -92,13 +93,12 @@ function headerParser(request, headerParts) {
 
     if (request['header'].hasOwnProperty('Cookie')) {
         console.log("present");
-        var cookies = request['header']['Cookie'].split(';');
-        var client_cookies = {};
-        cookies.forEach(function(cook) {
+        var clientCookies = {};
+        request['header']['Cookie'].split(';').forEach(function(cook) {
            var cookArr = cook.trim().split('=');
-           client_cookies[cookArr[0]] = cookArr[1];
+           clientCookies[cookArr[0]] = cookArr[1];
         });
-        request['header']['Cookie'] = client_cookies;
+        request['header']['Cookie'] = clientCookies;
 
     } else {
           console.log("Not Present");
@@ -112,13 +112,9 @@ function responseHandler(request, response) {
     response['Date'] = new Date().toUTCString();
     response['Connection'] = 'close';
     response['Server'] = 'NodeServer';
-
-    if (request['header']['Cookie'] == '') {
-        response['Set-Cookie'] = 'sid=' + uuid.v4().toString();
-        console.log("_________________"+response['Set-Cookie']+"____________________");
-    }
-
+    console.log(response);
     var responseString = stringifyResponse(response);
+    console.log(SESSIONS);
     request["socket"].write(responseString, function(err) {
             request["socket"].end();
     });
@@ -167,7 +163,6 @@ function get_handler(request, response) {
 
 function post_handler(request, response) {
     if (request['header']['Content-Type'].includes('multipart/form-data')) {
-        //console.log("THEREEEEEEEEEEEEEEEEEEEEEEEE");
         multipartParser(request);
     } else {
         request['content'] = qs.parse(request['body']);
@@ -180,6 +175,20 @@ function methodHandler(request,response) {
     METHOD[request['header']['method']](request,response);
 }
 
+function sessionHandler(request, response) {
+    if(request['header']['Cookie'].hasOwnProperty('sid')) {
+        if (SESSIONS.hasOwnProperty(request['header']['Cookie']['sid'])) {
+            return;
+        } else {
+            SESSIONS[request['header']['Cookie']['sid']] = {};    
+        }
+    } else {
+        var cookie = uuid.v4().toString();
+        response['Set-Cookie'] = 'sid=' + cookie;
+        SESSIONS[cookie] = {};
+    }
+}
+
 function requestHandler(request, requestString) {
     var response = {};
     var requestParts = requestString.split('\r\n\r\n');
@@ -188,6 +197,7 @@ function requestHandler(request, requestString) {
     if (request['header']['method'] === 'POST') {
         bodyParser(request, requestParts);
     }
+    sessionHandler(request, response);
     methodHandler(request,response);
 }
 //------------------------------------------------------------------------------
@@ -197,6 +207,7 @@ net.createServer(function(socket) {
     request['header'] = {};
     request['body'] = {};
     socket.on('data', function(data) {
+        console.log(SESSIONS);
         console.log('---------------RAW---------------\n ' +  data.toString() + '\n---------------Raw Ends---------------');
         requestHandler(request, data.toString());
         //console.log(request['body']);
