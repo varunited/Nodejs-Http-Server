@@ -36,25 +36,20 @@ function formPartsParser(request, formPart, index) {
     request['form'][key] = {};
     partArray = [];
     partObj = {};
-    request['form'][key]['header'] = {};
     formPart['header'].split('; ').forEach(function(hParts, index) {
-        partArray = hParts.split(/=|: /)
-        partObj[partArray[0]] = partArray[1];
+        partArray = hParts.split(/=|: /);
+        partObj[partArray[0]] = partArray[1].replace(/['"]+/g, '');
     });
-    request['form'][key]['header'] = partObj;
-    //console.log(partObj);
-    console.log(request['form'][key]['header']);
-    //request['form'][key]['header'] = formPart['header'];
-    if (formPart['body']) {
-        if (isFinite(formPart['body'])) {
-            request['form'][key]['body'] = parseFloat(formPart['body']);
-            //console.log("Bodies"+request['form'][key]['body']);
+    if (formPart['content']) {
+        if (isFinite(formPart['content'])) {
+            partObj['content'] = parseFloat(formPart['content']);
         } else {
-          request['form'][key]['body'] = formPart['body'];
+            partObj['content'] = formPart['content'];
         }
     } else {
-        request['form'][key]['body'] = undefined;
+        partObj['content'] = undefined;
     }
+    request['form'][key] = partObj;
 }
 
 function multipartParser(request) {
@@ -62,20 +57,17 @@ function multipartParser(request) {
     request['boundary'] = '--' + request['header']['Content-Type'].split('=')[1];
     var formPart = {};
     var formArray = [];
-    request['body'].split(request['boundary']).forEach(function(data, index) {
-        if (data) {
+    request['body'].split(request['boundary']).forEach(function(formData, index) {
+        if (formData) {
             //form[index+1] = {};
-            formArray = data.split('\r\n\r\n');
-            formPart['header'] = formArray[0].substring(2).replace(/\r\n/g, '; '); // Substring for ommiting \r\n from header and regex for fusing headers.
-            formPart['body'] = formArray[1].slice(0, -2); //Removes \r\n from end of the body.
+            formArray = formData.split('\r\n\r\n');
+            formPart['header'] = formArray[0].substring(2).replace(/\r\n/g, '; '); //Substring: ommiting \r\n from header and regex for headers.
+            formPart['content'] = formArray[1].slice(0, -2); //Removes \r\n from end of the content.
             if (formPart['header']) {
                 formPartsParser(request, formPart, index);
             }
         }
     });
-    console.log("_______+++++++++________+++++++++_____+++++______+++++++_");
-    console.log(request);
-    console.log("_______+++++++++________+++++++++_____+++++______+++++++_");
 }
 
 function bodyParser(request, bodyParts) { //FOR POST REQUEST: //Fix this for multiple Content-Type in request['header'].
@@ -100,9 +92,9 @@ function protocolParser(request, prot) {
 
 function headerParser(request, headerParts) {
     protocolParser(request, headerParts[0].split(' '));
-    headerParts.forEach(function(data, index) {
+    headerParts.forEach(function(head, index) {
         if (index > 0) {
-            var elem = data.split(': ');
+            var elem = head.split(': ');
             request['header'][elem[0]] = elem[1];
         }
     });
