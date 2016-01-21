@@ -30,14 +30,25 @@ function stringifyResponse(response) {
     return responseString;
 }
 
-function formPartsParser(request, formPart) {
-    var key = formPart['header'].match(/\bname=\"(.*?)\"/)[1];
+function formPartsParser(request, formPart, index) {
+    //var key = formPart['header'].match(/\bname=\"(.*?)\"/)[1];
+    var key = 'field'+index;
     request['form'][key] = {};
-    request['form'][key]['header'] = formPart['header'];
+    partArray = [];
+    partObj = {};
+    request['form'][key]['header'] = {};
+    formPart['header'].split('; ').forEach(function(hParts, index) {
+        partArray = hParts.split(/=|: /)
+        partObj[partArray[0]] = partArray[1];
+    });
+    request['form'][key]['header'] = partObj;
+    //console.log(partObj);
+    console.log(request['form'][key]['header']);
+    //request['form'][key]['header'] = formPart['header'];
     if (formPart['body']) {
         if (isFinite(formPart['body'])) {
             request['form'][key]['body'] = parseFloat(formPart['body']);
-            console.log("Bodies"+request['form'][key]['body']);
+            //console.log("Bodies"+request['form'][key]['body']);
         } else {
           request['form'][key]['body'] = formPart['body'];
         }
@@ -58,22 +69,27 @@ function multipartParser(request) {
             formPart['header'] = formArray[0].substring(2).replace(/\r\n/g, '; '); // Substring for ommiting \r\n from header and regex for fusing headers.
             formPart['body'] = formArray[1].slice(0, -2); //Removes \r\n from end of the body.
             if (formPart['header']) {
-                formPartsParser(request, formPart);
+                formPartsParser(request, formPart, index);
             }
         }
     });
+    console.log("_______+++++++++________+++++++++_____+++++______+++++++_");
+    console.log(request);
+    console.log("_______+++++++++________+++++++++_____+++++______+++++++_");
 }
 
-function bodyParser(request, bodyParts) { //FOR POST REQUEST
-    var bodyString = '';
-    bodyParts.forEach(function(bodyPart, index) {
-        if (index > 0) {
-            //console.log(index  +  bodyPart);
-            bodyString += bodyPart + '\r\n\r\n';// FIX THIS FOR Contnt-type = x-www-form-urlencoded
-        }
-    });
-    //console.log(bodyString);
-    request['body'] = bodyString;
+function bodyParser(request, bodyParts) { //FOR POST REQUEST: //Fix this for multiple Content-Type in request['header'].
+    if (request['header']['Content-Type'] == 'application/x-www-form-urlencoded') {
+            request['body'] = bodyParts[1];
+    } else {
+        var bodyString = '';
+        bodyParts.forEach(function(bodyPart, index) {
+            if (index > 0) {
+                bodyString += bodyPart + '\r\n\r\n';// FIX THIS FOR Contnt-type = x-www-form-urlencoded
+            }
+        });
+        request['body'] = bodyString;
+    }
 }
 
 function protocolParser(request, prot) {
@@ -94,7 +110,7 @@ function headerParser(request, headerParts) {
     if (request['header'].hasOwnProperty('Cookie')) {
         console.log("present");
         var clientCookies = {};
-        request['header']['Cookie'].split(';').forEach(function(cook) {
+        request['header']['Cookie'].split('; ').forEach(function(cook) {
            var cookArr = cook.trim().split('=');
            clientCookies[cookArr[0]] = cookArr[1];
         });
@@ -102,11 +118,22 @@ function headerParser(request, headerParts) {
 
     } else {
           console.log("Not Present");
-          request['header']['Cookie'] = '';
+          request['header']['Cookie'] = {};
     }
 }
 
 //Handlers----------------------------------------------------------------------
+
+function addSession(request) {
+    var clientCookie = request['header']['Cookie'];
+    if (clientCookie.hasOwnProperty('sid')) {
+        var sid = clientCookie['sid'];
+        if (SESSIONS.hasOwnProperty(sid)) {
+            SESSIONS[sid] = request['content'];
+        }
+    }
+}
+
 
 function responseHandler(request, response) {
     response['Date'] = new Date().toUTCString();
@@ -166,6 +193,7 @@ function post_handler(request, response) {
         multipartParser(request);
     } else {
         request['content'] = qs.parse(request['body']);
+        addSession(request)
     }
     console.log(request);
     staticFileHandler(request, response);
@@ -180,11 +208,12 @@ function sessionHandler(request, response) {
         if (SESSIONS.hasOwnProperty(request['header']['Cookie']['sid'])) {
             return;
         } else {
-            SESSIONS[request['header']['Cookie']['sid']] = {};    
+            SESSIONS[request['header']['Cookie']['sid']] = {};
         }
     } else {
         var cookie = uuid.v4().toString();
-        response['Set-Cookie'] = 'sid=' + cookie;
+        var exDate = 'Fri, 22 Jan 2016 11:00:00 GMT';
+        response['Set-Cookie'] = 'sid=' + cookie+"; expires="+exDate;
         SESSIONS[cookie] = {};
     }
 }
