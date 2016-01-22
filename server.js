@@ -23,7 +23,6 @@ function stringifyResponse(response) {
         if (response.hasOwnProperty(key) && key != 'content' && key != 'status') {
             responseString += key + ': ' + response[key] + '\r\n';
         }
-
     }
     responseString += '\r\n';
     if ('content' in response) responseString += response['content'];
@@ -38,7 +37,7 @@ function formPartsParser(request, formPart, index) {
     partObj = {};
     formPart['header'].split('; ').forEach(function(hParts, index) {
         partArray = hParts.split(/=|: /);
-        partObj[partArray[0]] = partArray[1].replace(/['"]+/g, '');
+        partObj[partArray[0]] = partArray[1].replace(/['"]+/g, ''); //Remove redundant "" from strings.
     });
     if (formPart['content']) {
         if (isFinite(formPart['content'])) {
@@ -116,22 +115,41 @@ function headerParser(request, headerParts) {
 
 //Handlers----------------------------------------------------------------------
 
-function addSession(request) {
+function deleteSession(request) {
     var clientCookie = request['header']['Cookie'];
     if (clientCookie.hasOwnProperty('sid')) {
         var sid = clientCookie['sid'];
         if (SESSIONS.hasOwnProperty(sid)) {
-            SESSIONS[sid] = request['content'];
+            delete SESSIONS[sid];
         }
     }
 }
 
+function getSession(request) {
+    var clientCookie = request['header']['Cookie'];
+    if (clientCookie.hasOwnProperty('sid')) {
+        var sid = clientCookie['sid'];
+        if (SESSIONS.hasOwnProperty(sid)) {
+            return SESSIONS[sid];
+        }
+    }
+}
+
+function addSession(request, content) {
+    var clientCookie = request['header']['Cookie'];
+    if (clientCookie.hasOwnProperty('sid')) {
+        var sid = clientCookie['sid'];
+        if (SESSIONS.hasOwnProperty(sid)) {
+            SESSIONS[sid] = content;
+        }
+    }
+}
 
 function responseHandler(request, response) {
     response['Date'] = new Date().toUTCString();
     response['Connection'] = 'close';
     response['Server'] = 'NodeServer';
-    console.log(response);
+    //console.log(response);
     var responseString = stringifyResponse(response);
     console.log(SESSIONS);
     request["socket"].write(responseString, function(err) {
@@ -144,6 +162,7 @@ function ok200Handler(request, response) {
     if (response['content']) {
         response['Content-Length'] = (response['content'].length).toString();
     }
+    console.log(response);
     responseHandler(request, response);
 }
 
@@ -154,6 +173,12 @@ function err404Handler(request, response) {
     responseHandler(request, response);
 }
 
+function sendJSON(request, response, content) {
+    response['content'] = JSON.stringify(content);
+    response['Content-type'] = 'application/json';
+       ok200Handler(request, response);
+}
+
 function staticFileHandler(request, response) {
     var filePath = false;
     filePath = request['header']['path'];
@@ -162,17 +187,24 @@ function staticFileHandler(request, response) {
     } else {
         filePath = './public' + filePath;
     }
-
-    fs.readFile(filePath, function(err, data) {
-        if (err) {
-            err404Handler(request, response);
-        } else {
-            response['content'] = data.toString();
-            var contentType = filePath.split('.').pop();
-            response['Content-type'] = CONTENT_TYPE[contentType];
-            ok200Handler(request, response);
-        }
-    });
+    if (filePath == './public/index.html') {
+        var content = {
+            name: 'varun',
+            age: 23
+        };
+        sendJSON(request, response, content)
+    } else {
+        fs.readFile(filePath, function(err, data) {
+            if (err) {
+                err404Handler(request, response);
+            } else {
+                response['content'] = data.toString();
+                var contentType = filePath.split('.').pop();
+                response['Content-type'] = CONTENT_TYPE[contentType];
+                ok200Handler(request, response);
+            }
+        });
+    }
 }
 
 function get_handler(request, response) {
@@ -183,9 +215,10 @@ function get_handler(request, response) {
 function post_handler(request, response) {
     if (request['header']['Content-Type'].includes('multipart/form-data')) {
         multipartParser(request);
+        addSession(request, request['form'])
     } else {
         request['content'] = qs.parse(request['body']);
-        addSession(request)
+        addSession(request, request['content'])
     }
     console.log(request);
     staticFileHandler(request, response);

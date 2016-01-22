@@ -3,7 +3,7 @@
 <body>
   <h2>JSON Request</h2>
 
-    <form name="inputform" action="formHandled.html" method="post">
+    <form name="inputform"  method="post">
       <input type="hidden" value="person" name="user" />
       <input type="hidden" value="password" name="pwd" />
       <input type="hidden" value="place" name="organization" />
@@ -11,7 +11,7 @@
     </form>
     <script>
         var xhr = new XMLHttpRequest();
-        xhr.open('POST', 'formHandled.html', true);
+        xhr.open('POST', 'form1.html', true);
         xhr.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
         xhr.onload = function () {
             // do something to response
