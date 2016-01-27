@@ -4,15 +4,25 @@ var url = require('url');
 var qs = require('querystring');
 var uuid = require('node-uuid');
 
+
 var SESSIONS = {};
 
 var METHOD = {
-    GET: get_handler,
-    POST: post_handler
+    GET: getHandler,
+    POST: postHandler
 }
 
 var CONTENT_TYPE = {
-    html: 'text/html'
+    html: 'text/html',
+    css: 'text/css',
+    js: 'application/javascript',
+    jpeg: 'image/jpeg',
+    jpg: 'image/jpg',
+    png: 'image/png',
+    gif: 'image/gif',
+    ico: 'image/x-icon',
+    text: 'text/plain',
+    json: 'application/json'
 }
 
 //-------------PARSING----------------------------------------------------------
@@ -30,17 +40,18 @@ function stringifyResponse(response) {
 }
 
 function formPartsParser(request, formPart, index) {
-    //var key = formPart['header'].match(/\bname=\"(.*?)\"/)[1];
+    /*var key = formPart['header'].match(/\bname=\"(.*?)\"/)[1];
+        Alternative for keys in form object */
     var key = 'field'+index;
     request['form'][key] = {};
     partArray = [];
     partObj = {};
     formPart['header'].split('; ').forEach(function(hParts, index) {
         partArray = hParts.split(/=|: /);
-        partObj[partArray[0]] = partArray[1].replace(/['"]+/g, ''); //Remove redundant "" from strings.
+        partObj[partArray[0]] = partArray[1].replace(/['"]+/g, ''); //Remove redundant quotes(", ') from strings.
     });
     if (formPart['content']) {
-        if (isFinite(formPart['content'])) {
+        if (isFinite(formPart['content'])) { //Checks if the content is number or not.
             partObj['content'] = parseFloat(formPart['content']);
         } else {
             partObj['content'] = formPart['content'];
@@ -153,7 +164,12 @@ function responseHandler(request, response) {
     var responseString = stringifyResponse(response);
     console.log(SESSIONS);
     request["socket"].write(responseString, function(err) {
-            request["socket"].end();
+            if (err) {
+                console.log('SOCKET-WRITE-ERROR');
+                //console.log("WHAT TO DO??")
+            } else {
+                request["socket"].end();
+            }
     });
 }
 
@@ -174,59 +190,76 @@ function err404Handler(request, response) {
 }
 
 function sendJSON(request, response, content) {
-    response['content'] = JSON.stringify(content);
-    response['Content-type'] = 'application/json';
-       ok200Handler(request, response);
+    if (content) {
+        response['content'] = JSON.stringify(content);
+        response['Content-type'] = 'application/json';
+        ok200Handler(request, response);
+    } else {
+        err404Handler(request, response)
+    }
+}
+
+function sendHTML(request, response, content) {
+    if (content) {
+        response['content'] = content;
+        response['Content-type'] = 'text/html';
+        ok200Handler(request, response);
+    } else {
+        err404Handler(request, response)
+    }
 }
 
 function staticFileHandler(request, response) {
-    var filePath = false;
-    filePath = request['header']['path'];
+    var filePath = request['header']['path'];
     if (filePath == '/' || filePath == '/favicon.ico') {
         filePath = './public/index.html';
     } else {
         filePath = './public' + filePath;
     }
-    if (filePath == './public/index.html') {
-        var content = {
-            name: 'varun',
-            age: 23
-        };
-        sendJSON(request, response, content)
-    } else {
-        fs.readFile(filePath, function(err, data) {
-            if (err) {
-                err404Handler(request, response);
-            } else {
-                response['content'] = data.toString();
-                var contentType = filePath.split('.').pop();
-                response['Content-type'] = CONTENT_TYPE[contentType];
-                ok200Handler(request, response);
-            }
-        });
+    fs.readFile(filePath, function(err, data) {
+        if (err) {
+            err404Handler(request, response);
+        } else {
+            response['content'] = data.toString();
+            var contentType = filePath.split('.').pop();
+            response['Content-type'] = CONTENT_TYPE[contentType];
+            ok200Handler(request, response);
+        }
+    });
+
+}
+
+function postHandler(request, response) {
+    try {
+        if (request['header']['Content-Type'].includes('multipart/form-data')) {
+            multipartParser(request);
+        } else {
+            request['content'] = qs.parse(request['body']);
+        }
+        console.log(request);
+        staticFileHandler(request, response);
+        //handleDynamically();
+    }
+    catch(e) {
+        err404Handler(request, response);
     }
 }
 
-function get_handler(request, response) {
+function getHandler(request, response) {
     console.log(request);
-    staticFileHandler(request,response);
+    try {
+        handleDynamically();
+    }
+    catch(e) {
+        staticFileHandler(request,response);
+    }
 }
 
-function post_handler(request, response) {
-    if (request['header']['Content-Type'].includes('multipart/form-data')) {
-        multipartParser(request);
-        addSession(request, request['form'])
-    } else {
-        request['content'] = qs.parse(request['body']);
-        addSession(request, request['content'])
-    }
-    console.log(request);
-    staticFileHandler(request, response);
-}
 
 function methodHandler(request,response) {
     METHOD[request['header']['method']](request,response);
 }
+
 
 function sessionHandler(request, response) {
     if(request['header']['Cookie'].hasOwnProperty('sid')) {
@@ -237,8 +270,9 @@ function sessionHandler(request, response) {
         }
     } else {
         var cookie = uuid.v4().toString();
-        var exDate = 'Fri, 22 Jan 2016 11:00:00 GMT';
-        response['Set-Cookie'] = 'sid=' + cookie+"; expires="+exDate;
+        var someDate = new Date();
+        someDate.setDate(someDate.getDate() + 6);
+        response['Set-Cookie'] = 'sid=' + cookie+"; expires=" + someDate;
         SESSIONS[cookie] = {};
     }
 }
@@ -254,17 +288,23 @@ function requestHandler(request, requestString) {
     sessionHandler(request, response);
     methodHandler(request,response);
 }
+
+
 //------------------------------------------------------------------------------
 net.createServer(function(socket) {
     var request = {};
     request["socket"] = socket;
     request['header'] = {};
     request['body'] = {};
-    socket.on('data', function(data) {
+
+    socket.on('error', function(exception) {
+        console.log("SOCKET-ERROR: " + exception);
+        socket.end();
+    });
+    socket.on('data', function(rawRequest) {
         console.log(SESSIONS);
-        console.log('---------------RAW---------------\n ' +  data.toString() + '\n---------------Raw Ends---------------');
-        requestHandler(request, data.toString());
-        //console.log(request['body']);
+        console.log('---------------RAW-REQUEST---------------\n' +  rawRequest.toString() + '---------------RAW-REQUEST-ENDS---------------\n');
+        requestHandler(request, rawRequest.toString());
     });
 
 }).listen(8000, '0.0.0.0');
