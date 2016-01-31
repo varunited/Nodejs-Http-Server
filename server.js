@@ -4,8 +4,13 @@ var url = require('url');
 var qs = require('querystring');
 var uuid = require('node-uuid');
 
-
+//-------------------------------Objects---------------------------------------
 var SESSIONS = {};
+
+var ROUTES = {
+    get: {},
+    post: {}
+}
 
 var METHOD = {
     GET: getHandler,
@@ -25,7 +30,7 @@ var CONTENT_TYPE = {
     json: 'application/json'
 }
 
-//-------------PARSING----------------------------------------------------------
+//-------------------------------PARSING---------------------------------------
 
 function stringifyResponse(response) {
     var responseString = response['status'] + '\r\n';
@@ -124,7 +129,7 @@ function headerParser(request, headerParts) {
     }
 }
 
-//Handlers----------------------------------------------------------------------
+//-------------------------------Handlers--------------------------------------
 
 function deleteSession(request) {
     var clientCookie = request['header']['Cookie'];
@@ -248,10 +253,13 @@ function postHandler(request, response) {
 function getHandler(request, response) {
     console.log(request);
     try {
-        handleDynamically();
+        //handleDynamically();
+        console.log(">>>>>>>>>><<<<<<<<<<<>>>>>>><HAPPENING>>>>>>><<<<<<<<>>>>>>><<<<<<>>");
+        ROUTES['get'][request['header']['path']](request, response);
     }
     catch(e) {
-        staticFileHandler(request,response);
+    //    staticFileHandler(request,response);
+        err404Handler(request, response);
     }
 }
 
@@ -289,22 +297,36 @@ function requestHandler(request, requestString) {
     methodHandler(request,response);
 }
 
-
 //------------------------------------------------------------------------------
-net.createServer(function(socket) {
-    var request = {};
-    request["socket"] = socket;
-    request['header'] = {};
-    request['body'] = {};
 
-    socket.on('error', function(exception) {
-        console.log("SOCKET-ERROR: " + exception);
-        socket.end();
-    });
-    socket.on('data', function(rawRequest) {
-        console.log(SESSIONS);
-        console.log('---------------RAW-REQUEST---------------\n' +  rawRequest.toString() + '---------------RAW-REQUEST-ENDS---------------\n');
-        requestHandler(request, rawRequest.toString());
-    });
+function addRoute(method, path, func) {
+    ROUTES[method][path] = func;
+}
 
-}).listen(8000, '0.0.0.0');
+function startServer(port) {
+    net.createServer(function(socket) {
+        var request = {};
+        request["socket"] = socket;
+        request['header'] = {};
+        request['body'] = {};
+
+        socket.on('error', function(exception) {
+            console.log("SOCKET-ERROR: " + exception);
+            socket.end();
+        });
+        socket.on('data', function(rawRequest) {
+            console.log(SESSIONS);
+            console.log('---------------RAW-REQUEST---------------\n' +  rawRequest.toString() + '---------------RAW-REQUEST-ENDS---------------\n');
+            requestHandler(request, rawRequest.toString());
+        });
+
+    }).listen(port);
+}
+exports.addRoute = addRoute;
+exports.startServer = startServer;
+exports.SESSIONS = SESSIONS;
+exports.sendHTML = sendHTML;
+exports.sendJSON = sendJSON;
+exports.addSession = addSession;
+exports.getSession = getSession;
+exports.deleteSession = deleteSession;
