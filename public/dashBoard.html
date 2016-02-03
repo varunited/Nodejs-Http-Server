@@ -33,13 +33,10 @@
                 <article>
                     <header>
                         <h2>{{ post.title }}</h2>
-                        <div class="meta">Posted By <strong>{{ user.name }}/strong></div>
+                        <div class="meta">Posted By <strong>{{ user.name }}</strong></div>
                     </header>
                     <img src={{ img.src }}>
                     <p>{{ post.content }}</p>
-                    <footer>
-                        <a class="readmore" href="{{ post.url }}">Read More</a>
-                    </footer>
                 </article>
             </script>
         </section>
@@ -56,10 +53,28 @@
         <script>
             $.ajax({
                 url: 'dashBoard.html',
-                data: { 'req': 'user-data' },
+                data: { 'req': 'user-posts' },
                 type: 'POST',
                 success: function(result) {
                     console.log(result)
+                    var posts = result.posts
+                    var userName = result.userName
+
+                    var content = document.getElementById("content")
+                    posts.forEach(function(post) {
+                        var template = document.querySelector("[data-template='post']").innerText.trim()
+
+                        template = template.replace(/{{ user.name }}/g, userName)
+                        template = template.replace(/{{ post.title }}/g, post["post-title"])
+                        template = template.replace(/{{ post.content }}/g, post["post-content"])
+                        template = template.replace(/{{ img.src }}/g, "/img/blog1.jpg") // hard coded
+
+                        content.innerHTML += template
+                    })
+                },
+                error: function() {
+                    var content = document.getElementById("content")
+                    content.innerText = "No posts yet!"
                 }
             })
         </script>
