@@ -183,7 +183,7 @@ function ok200Handler(request, response) {
     if (response['content']) {
         response['Content-Length'] = (response['content'].length).toString();
     }
-    console.log(response);
+    //console.log(response);
     responseHandler(request, response);
 }
 
@@ -216,7 +216,7 @@ function sendHTML(request, response, content) {
 
 function staticFileHandler(request, response) {
     var filePath = request['header']['path'];
-    if (filePath == '/' || filePath == '/favicon.ico') {
+    if (filePath == '/') {
         filePath = './public/index.html';
     } else {
         filePath = './public' + filePath;
@@ -228,6 +228,7 @@ function staticFileHandler(request, response) {
             response['content'] = data.toString();
             var contentType = filePath.split('.').pop();
             response['Content-type'] = CONTENT_TYPE[contentType];
+            //console.log(response['content']);
             ok200Handler(request, response);
         }
     });
@@ -242,8 +243,8 @@ function postHandler(request, response) {
             request['content'] = qs.parse(request['body']);
         }
         console.log(request);
-        staticFileHandler(request, response);
-        //handleDynamically();
+        //staticFileHandler(request, response);
+        ROUTES['post'][request['header']['path']](request, response);
     }
     catch(e) {
         err404Handler(request, response);
@@ -251,15 +252,15 @@ function postHandler(request, response) {
 }
 
 function getHandler(request, response) {
-    console.log(request);
+    //console.log(request);
     try {
         //handleDynamically();
         console.log(">>>>>>>>>><<<<<<<<<<<>>>>>>><HAPPENING>>>>>>><<<<<<<<>>>>>>><<<<<<>>");
         ROUTES['get'][request['header']['path']](request, response);
     }
     catch(e) {
-    //    staticFileHandler(request,response);
-        err404Handler(request, response);
+        staticFileHandler(request,response);
+        //err404Handler(request, response);
     }
 }
 
@@ -324,6 +325,7 @@ function startServer(port) {
 }
 exports.addRoute = addRoute;
 exports.startServer = startServer;
+exports.err404Handler = err404Handler;
 exports.SESSIONS = SESSIONS;
 exports.sendHTML = sendHTML;
 exports.sendJSON = sendJSON;
