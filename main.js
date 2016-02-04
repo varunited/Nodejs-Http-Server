@@ -151,7 +151,19 @@ function dashBoard(request, response) {
     //}
 }
 
+function logout(request, response) {
+    console.log("NOT-HAPPENING");
+    server.deleteSession(request);
+    fs.readFile('./public/index.html', function(err, data) {
+        if (err) {
+            server.err404Handler(request, response);
+        } else {
+            server.sendHTML(request, response, data.toString());
+        }
+    });
+}
+
 server.addRoute('get', '/', home);
-//server.addRoute('get', '/dashBoard.html', getDashBoard);
 server.addRoute('post', '/dashBoard.html', dashBoard);
+server.addRoute('post', '/index.html', logout)
 server.startServer(8000);
