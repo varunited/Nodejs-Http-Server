@@ -232,7 +232,6 @@ function staticFileHandler(request, response) {
             ok200Handler(request, response);
         }
     });
-
 }
 
 function postHandler(request, response) {
@@ -320,7 +319,6 @@ function startServer(port) {
             console.log('---------------RAW-REQUEST---------------\n' +  rawRequest.toString() + '---------------RAW-REQUEST-ENDS---------------\n');
             requestHandler(request, rawRequest.toString());
         });
-
     }).listen(port);
 }
 exports.addRoute = addRoute;

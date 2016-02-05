@@ -48,16 +48,6 @@ function home(request, response) {
     });
 }
 
-/*function getDashBoard(request, response) {
-    console.log("GETDASHBOARD TRIED");
-    fs.readFile('./public/dashBoard.html', function(err, data) {
-        if (err) {
-            server.err404Handler(request, response);
-        } else {
-            server.sendHTML(request, response, data.toString());
-        }
-    });
-}*/
 function signup(request, response) {
     var userContent = request['content'];
     var uId = userContent['userEmail'];
@@ -98,7 +88,6 @@ function login(request, response) {
             server.sendHTML(request, response, data.toString());
         }
     });
-
 }
 
 function addPost(request, response) {
@@ -140,15 +129,24 @@ function dashBoard(request, response) {
             posts: POSTS[uId]
         }
         server.sendJSON(request, response, data);
-    }  //else {
-        fs.readFile('./public/dashBoard.html', function(err, data) {
-            if (err) {
-                server.err404Handler(request, response);
-            } else {
-                server.sendHTML(request, response, data.toString());
-            }
-        });
-    //}
+    }
+    fs.readFile('./public/dashBoard.html', function(err, data) {
+        if (err) {
+            server.err404Handler(request, response);
+        } else {
+            server.sendHTML(request, response, data.toString());
+        }
+    });
+}
+
+function allPosts(request, response) {
+    var user = server.getSession(request);
+    var uId = user['userEmail'];
+    var data = {
+        userName: USERS,
+        posts: POSTS
+    }
+    server.sendJSON(request, response, data);
 }
 
 function logout(request, response) {
@@ -165,5 +163,6 @@ function logout(request, response) {
 
 server.addRoute('get', '/', home);
 server.addRoute('post', '/dashBoard.html', dashBoard);
-server.addRoute('post', '/index.html', logout)
+server.addRoute('post', '/index.html', logout);
+server.addRoute('post', '/allPosts.html', allPosts);
 server.startServer(8000);

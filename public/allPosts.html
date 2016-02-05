@@ -63,29 +63,33 @@
         <script src="//code.jquery.com/jquery-1.12.0.min.js"></script>
         <script>
             $.ajax({
-                url: 'dashBoard.html',
+                url: 'allPosts.html',
                 data: { 'req': 'user-posts' },
                 type: 'POST',
                 success: function(result) {
-                    console.log(result)
-                    var posts = result.posts
-                    var userName = result.userName
+                    var allPosts = result.posts
+                    var allUsers = result.userName
 
                     var content = document.getElementById("content")
-                    posts.forEach(function(post) {
-                        var template = document.querySelector("[data-template='post']").innerText.trim()
 
-                        template = template.replace(/{{ user.name }}/g, userName)
-                        template = template.replace(/{{ post.title }}/g, post["post-title"])
-                        template = template.replace(/{{ post.content }}/g, post["post-content"])
-                        template = template.replace(/{{ img.src }}/g, "/img/blog1.jpg") // hard coded
+                    for(var user in allPosts) {
+                        var userPosts = allPosts[user]
+                        var userName  = allUsers[user]["info"]["userName"]
+                        userPosts.forEach(function(post) {
+                            var template = document.querySelector("[data-template='post']").innerText.trim()
 
-                        content.innerHTML += template
-                    })
+                            template = template.replace(/{{ user.name }}/g, userName)
+                            template = template.replace(/{{ post.title }}/g, post["post-title"])
+                            template = template.replace(/{{ post.content }}/g, post["post-content"])
+                            template = template.replace(/{{ img.src }}/g, "/img/blog1.jpg") // hard coded
+
+                            content.innerHTML += template
+                        })
+                    }
                 },
                 error: function() {
                     var content = document.getElementById("content")
-                    content.innerText = "No posts yet!"
+                    content.innerText += "No posts yet!"
                 }
             })
         </script>
