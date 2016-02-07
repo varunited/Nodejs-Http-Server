@@ -115,7 +115,7 @@ function headerParser(request, headerParts) {
     });
 
     if (request['header'].hasOwnProperty('Cookie')) {
-        console.log("present");
+        console.log("Cookie is present\n");
         var clientCookies = {};
         request['header']['Cookie'].split('; ').forEach(function(cook) {
            var cookArr = cook.trim().split('=');
@@ -124,7 +124,7 @@ function headerParser(request, headerParts) {
         request['header']['Cookie'] = clientCookies;
 
     } else {
-          console.log("Not Present");
+          console.log("Cookie not resent\n");
           request['header']['Cookie'] = {};
     }
 }
@@ -165,13 +165,13 @@ function responseHandler(request, response) {
     response['Date'] = new Date().toUTCString();
     response['Connection'] = 'close';
     response['Server'] = 'NodeServer';
-    //console.log(response);
     var responseString = stringifyResponse(response);
+    console.log("SESSIONS AT THE END:");
     console.log(SESSIONS);
+    console.log("\nEND OF REQUEST-RESPONSE CYCLE-------------------------------------------------------------\n");
     request["socket"].write(responseString, function(err) {
             if (err) {
                 console.log('SOCKET-WRITE-ERROR');
-                //console.log("WHAT TO DO??")
             } else {
                 request["socket"].end();
             }
@@ -183,7 +183,6 @@ function ok200Handler(request, response) {
     if (response['content']) {
         response['Content-Length'] = (response['content'].length).toString();
     }
-    //console.log(response);
     responseHandler(request, response);
 }
 
@@ -228,7 +227,6 @@ function staticFileHandler(request, response) {
             response['content'] = data.toString();
             var contentType = filePath.split('.').pop();
             response['Content-type'] = CONTENT_TYPE[contentType];
-            //console.log(response['content']);
             ok200Handler(request, response);
         }
     });
@@ -238,11 +236,15 @@ function postHandler(request, response) {
     try {
         if (request['header']['Content-Type'].includes('multipart/form-data')) {
             multipartParser(request);
+            console.log('\nPOST REQUEST DATA:' );
+            console.log(request['form']);
+            console.log('POST REQUEST DATA ENDS:\n' );
         } else {
             request['content'] = qs.parse(request['body']);
+            console.log('\nPOST REQUEST DATA:' );
+            console.log(request['content']);
+            console.log('POST REQUEST DATA ENDS:\n' );
         }
-        console.log(request);
-        //staticFileHandler(request, response);
         ROUTES['post'][request['header']['path']](request, response);
     }
     catch(e) {
@@ -251,15 +253,11 @@ function postHandler(request, response) {
 }
 
 function getHandler(request, response) {
-    //console.log(request);
     try {
-        //handleDynamically();
-        console.log(">>>>>>>>>><<<<<<<<<<<>>>>>>><HAPPENING>>>>>>><<<<<<<<>>>>>>><<<<<<>>");
         ROUTES['get'][request['header']['path']](request, response);
     }
     catch(e) {
         staticFileHandler(request,response);
-        //err404Handler(request, response);
     }
 }
 
@@ -315,8 +313,9 @@ function startServer(port) {
             socket.end();
         });
         socket.on('data', function(rawRequest) {
-            console.log(SESSIONS);
-            console.log('---------------RAW-REQUEST---------------\n' +  rawRequest.toString() + '---------------RAW-REQUEST-ENDS---------------\n');
+            console.log('SESSIONS AT THE BEGINING:');
+	        console.log(SESSIONS);
+	        console.log('------------------------RAW-REQUEST\n' +  rawRequest.toString() + '\n-------------------RAW-REQUEST-ENDS');
             requestHandler(request, rawRequest.toString());
         });
     }).listen(port);
