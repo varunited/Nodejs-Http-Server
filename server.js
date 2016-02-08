@@ -323,7 +323,6 @@ function startServer(port) {
 exports.addRoute = addRoute;
 exports.startServer = startServer;
 exports.err404Handler = err404Handler;
-exports.SESSIONS = SESSIONS;
 exports.sendHTML = sendHTML;
 exports.sendJSON = sendJSON;
 exports.addSession = addSession;
