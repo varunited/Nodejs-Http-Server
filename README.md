@@ -15,17 +15,17 @@ var server = require('servarunited');
 ### How to set-up:
 
  - To start the server, use server.startServer(port, address)
-     ```js
+    ```js
     server.startServer(8080, '127.0.0.1');
     ```
-  - Routing mechanism
+ - Routing mechanism
     - For adding a route, use server.addRoute(method, path, function)
         ```js
         server.addRoute('get', '/', home);
         ```
       - method corresponds to the HTTP method (get or post)
       - path is the requested path by the browser
-      - function is
+      - function is the user-defined function
 
     - addRoute(method, path, function) binds the function to a set of method and path
         ```js
@@ -40,6 +40,7 @@ var server = require('servarunited');
             post : {}
         }
         ```
+
 ### How to use:        
 
 - To send the HTML data, use server.sendHTML(request, response, requested_HTML)
