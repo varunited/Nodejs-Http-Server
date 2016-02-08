@@ -33,6 +33,7 @@ var server = require('servarunited');
             ROUTES[method][path] = func;
         }
         ```
+
     - ROUTES is an object used to build method-path pair
         ```js
         var ROUTES = {
@@ -47,19 +48,23 @@ var server = require('servarunited');
     ```js
     server.sendHTML(request, response, content);
     ```
+
 - To send the JSON data, use server.sendJSON(request, response, JSON_content)
     ```js
     server.sendJSON(request, response, content);
     ```
+
 - To handle sessions, use:
     - To add session
         ```js
         server.addSession(request, content);
         ```
+
     - To get session
         ```js
         server.getSession(request);
         ```
+
     - To delete session
         ```js
         server.deleteSession(request);
